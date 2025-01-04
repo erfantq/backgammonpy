@@ -18,7 +18,12 @@ print(dec)
 
 
 
-message = ",44,222,222,3"
+message = "44,222,222,3,"
 
 keys = message.split(",")
 print (keys)
+
+str = "111111"
+
+str += "22"
+print(str)
