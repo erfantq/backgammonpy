@@ -1,48 +1,120 @@
 import socket
 import rsa
+import pickle
 import threading
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import hashes
 
 class Router:
-    def __init__(self, host="127.0.0.1", port=7001, next_router=None):
+    
+    def __init__(self, host="127.0.0.1", port=7001, next_router=None, pervious_router= None, is_first=False, is_last=False, str_keys="", received_keys=[], chenk_size=53):
         self.host = host
         self.port = port
         self.next_router = next_router
-        self.private_key, self.public_key = rsa.newkeys(512)
-
+        self.is_first = is_first
+        self.is_last = is_last
+        self.str_keys = str_keys
+        self.pervious_router = pervious_router
+        self.public_key, self.private_key = rsa.newkeys(512)
+        self.received_keys = received_keys
+        self.chunk_size = chenk_size
+        
     def start(self):
-        router_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        router_socket.bind((self.host, self.port))
-        router_socket.listen(5)
-        print(f"Router running on {self.host}:{self.port}")
-
-        while True:
-            client_socket, addr = router_socket.accept()
-            encrypted_message = client_socket.recv(2048)
-            decrypted_message = rsa.decrypt(encrypted_message, self.private_key).decode()
-            print(f"Router {self.port} decrypted message: {decrypted_message}")
-
-            if self.next_router:
-                next_router_ip, next_router_port = self.next_router.split(":")
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as next_router_socket:
-                    encrypted_forward_message = rsa.encrypt(decrypted_message.encode(), self.public_key)
-                    next_router_socket.connect((next_router_ip, int(next_router_port)))
-                    next_router_socket.send(encrypted_forward_message)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
+            server.bind((self.host, self.port))
+            if(self.is_first):
+                server.listen(5)
             else:
-                print(f"Message delivered to final destination: {decrypted_message}")
-                response = rsa.encrypt("Message delivered successfully.".encode(), self.public_key)
-                client_socket.send(response)
-            client_socket.close()
+                server.listen(5)
+            print(f"Router running on {self.host}:{self.port}")
 
-    def set_next_router(self, next_router):
-        self.next_router = next_router
+            while True:
+                conn, addr = server.accept()
+                
+                threading.Thread(target=self.handle_requests, args=(conn,addr)).start()
+
+    def handle_requests(self, conn, addr):
+        try:
+            client_port = addr[1]
+            # print(f"message received on port {self.port}")
+            data = conn.recv(8192)
+            print(f"Router {self.port} received keys from previous router: {self.received_keys}")
+            # data = data.decode()
+            # print(f"port{self.port}  {data}")
+            if b"-----BEGIN RSA PUBLIC KEY-----" in data:
+                self.received_keys = data.split(b"||")
+                self.send_public_key()   
+            elif b"REGISTER_CLIENT" in data:
+                self.register_cilent(data, conn)
+            else:
+                # encrypted_message = data.removeprefix(b"[CLIENT]")
+                encrypted_chunks = data
+                # print(f"data: {data}")
+                # parts = data.split(b'||')
+                # message_bytes = parts[0]
+                # signatures = parts[1:]
+                # # print(type(signatures[0]))
+                # original_signatures = pickle.loads(signatures[0])
+                # print(f"signatures_len_in_router: {len(original_signatures)}")
+                # print(f"signatures: {signatures}")
+                # if(self.port == 7001):
+                #     decrypted_message = rsa.verify(message_bytes, original_signatures[2], self.public_key)
+                # elif(self.port == 7002):
+                #     decrypted_message = rsa.verify(message_bytes, original_signatures[1], self.public_key)
+                # elif(self.port == 7003):
+                #     decrypted_message = rsa.verify(message_bytes, original_signatures[0], self.public_key)
+                decrypted_chunks = []
+                for encrypted_chunk in encrypted_chunks:
+                    decrypted_chunk = rsa.decrypt(encrypted_chunk, self.private_key)
+                    decrypted_chunks.append(decrypted_chunk)
+                # decrypted_message = b''.join(decrypted_chunks).decode()
+                # decrypted_message = self.split_message(decrypted_message, self.chunk_size).encode()
+                # print(f"Router {self.port} decrypted message: {message_bytes.decode()}")
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as next_conn:
+                    next_conn.connect(self.next_router)
+                    # bytes_data = pickle.dumps(original_signatures)
+                    # if(self.is_last == False):
+                    #     data_to_send = message_bytes + b'||' + bytes_data
+                    # else:
+                    #     data_to_send = message_bytes
+                    # print(f"data_to_send_in_router: {data_to_send}")
+                    next_conn.send(decrypted_chunks)
+            # elif(b"[SERVER]" in data):
+            #     pass
+                
+        except Exception as e:
+            print(f"Error in router {self.port}: {e}")
+        finally:
+            conn.close() 
+            
+    def split_message(self, message, chunk_size):
+        return [message[i:i + chunk_size] for i in range(0, len(message), chunk_size)]
+
+    def send_public_key(self):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as next_conn:
+            next_conn.connect(self.next_router)
+            all_keys = b"||".join(self.received_keys + [self.public_key.save_pkcs1()])
+            # print(f"all_keys: {all_keys}")
+            next_conn.send(all_keys)
+        print(f"Router {self.port} sent keys to next router.")
+
+    def register_cilent(self, data, conn):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as next_conn:
+            next_conn.connect(self.next_router)
+            next_conn.send(data)
+            
+            response = next_conn.recv(8192)
+            # print(f"response router is {response.decode()}")
+            conn.send(response)
+
 
 if __name__ == "__main__":
-    router1 = Router(port=7001)
-    router2 = Router(port=7002)
-    router3 = Router(port=7003)
-    router1.set_next_router("127.0.0.1:7002")
-    router2.set_next_router("127.0.0.1:7003")
+    router1 = Router(port=7001, next_router=("127.0.0.1", 7002), is_first= True)
+    router2 = Router(port=7002, next_router=("127.0.0.1", 7003),pervious_router =("127.0.0.1", 7001))
+    router3 = Router(port=7003, next_router=("127.0.0.1", 5000), pervious_router =("127.0.0.1", 7002), is_last=True)
 
     threading.Thread(target=router1.start).start()
     threading.Thread(target=router2.start).start()
     threading.Thread(target=router3.start).start()
+    
+    router1.send_public_key()
