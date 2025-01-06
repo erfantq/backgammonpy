@@ -1,7 +1,8 @@
 import socket
 import rsa
 import threading
-
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import hashes
 class Router:
     
     def __init__(self, host="127.0.0.1", port=7001, next_router=None, pervious_router= None, is_first=False, is_last=False, str_keys=""):
@@ -43,11 +44,10 @@ class Router:
                 self.send_public_key()
                 
             elif "REGISTER_CLIENT" in data:
-                self.register_cilent(data)
+                self.register_cilent(data, conn)
                 
                 
-            elif "CLIENT_RCV_KEYS" in data:
-                self.send_keys_to_client(data)
+            
                 
         except Exception as e:
             print(f"Error in router {self.port}: {e}")
@@ -61,29 +61,45 @@ class Router:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as next_conn:
             next_conn.connect(self.next_router)
             self.str_keys += str(self.public_key) + "#"
-            # print(self.str_keys)
-            # print(self.next_router)
+            
             next_conn.send(self.str_keys.encode())
 
 
-    def register_cilent(self, data):
+    def register_cilent(self, data, conn):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as next_conn:
             next_conn.connect(self.next_router)
             next_conn.send(data.encode())
+            
+            response = next_conn.recv(2048)
+            print(f"response router is {response.decode()}")
+            conn.send(response)
 
-    def send_keys_to_client(self, data):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as next_conn:
-            if self.pervious_router:
-                next_conn.connect(self.pervious_router)
-                next_conn.send(data.encode())
-            else:
-                port = data.split(",")[0]
+    
                 
-                print(port)
-                next_conn.connect(("127.0.0.1", int(port)))
-                next_conn.send(data.encode())
+      
+    def handle_requests(self, conn):
+        try:
+            print(f"message received on port {self.port}")
+            data = conn.recv(4096).decode()
+            data = str(data)
+            print(f"port{self.port}  {data}")
+            if "PUBLIC_KEY" in data:
+                self.str_keys = data
+                self.send_public_key()
+            elif(data.startswith("[CLIENT]")):
+                encrypted_message = data.removeprefix("[CLIENT]")
+                decrypted_message = rsa.decrypt(encrypted_message, self.private_key)
+                print(f"Router {self.port} decrypted message: {decrypted_message.decode()}")
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as next_conn:
+                    next_conn.connect(self.next_router)
+                    next_conn.send(decrypted_message)
+            elif(data.startswith("[SERVER]")):
+                pass
                 
-        
+        except Exception as e:
+            print(f"Error in router {self.port}: {e}")
+        finally:
+            conn.close()  
         
 
 if __name__ == "__main__":

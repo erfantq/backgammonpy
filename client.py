@@ -3,6 +3,8 @@ import rsa
 import json
 import pickle
 from cryptography.hazmat.primitives import serialization
+import threading
+
 
 class P2PClient:
     def __init__(self, host="127.0.0.1", port=6000, router_host="127.0.0.1", router_port=7001, public_keys_str=[], public_keys = [], chunk_size=53):
@@ -16,12 +18,19 @@ class P2PClient:
        
     def start(self):
         self.register_with_server()
+        threading.Thread(target=self.receive_messages, args=()).start()
+
+        
+       
         
         while True:
-            choice = input("1. See client list\n2. Exit\nEnter choice: ")
+            choice = input("1. See client list\n2. connect ro someone\n3. Exit\nEnter choice: ")
             if choice == "1":
                 self.request_peers()
             elif choice == "2":
+                client_two_port = input("Enter port of client : ")
+                self.connect_to_client(self.router_host ,client_two_port)
+            elif choice == "3":
                 break
             else:
                 print("Invalid option!")
@@ -82,6 +91,8 @@ class P2PClient:
                 client.send(encrypted_chunks)
                 
                 response = client.recv(8192).decode()
+                
+                return response
 
 
     def request_peers(self):
@@ -89,6 +100,35 @@ class P2PClient:
         self.send_message(message)
         
         
+    def connect_to_client(self,client_two_host, client_two_port):
+        message = f"CONNECT TO CLIENT{client_two_port}"
+        response = self.send_message(message)
+        if response == "YES":        
+            client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            client.connect(client_two_host, client_two_port)
+
+    def receive_messages(self):
+        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client.connect((self.router_host, self.router_port))
+        while True:
+            try:
+                message = client.recv(1024).decode()
+                print(f"\n{message}")
+                if message.startswith("CONNECTION_REQUEST"):
+                    port = message.replace("CONNECTION_REQUEST", "")
+                    while True:
+                        response = input(f"{port} want to connect you, do you agree?? (yes/no)")
+                        if(response == "yes"):
+                            client.send("YES".encode())
+                            break
+                        elif(response == "no"):
+                            client.send("NO".encode())
+                            break
+                        else:
+                            print("Wrong input")
+            except:
+                print("Connection lost.")
+                break
 
 if __name__ == "__main__":
     client = P2PClient(port=6001)  # پورت متفاوت برای کلاینت

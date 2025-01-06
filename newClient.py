@@ -1,12 +1,18 @@
 import socket
 import rsa
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 
 class P2PClient:
-    def __init__(self, host="127.0.0.1", port=6000, server_host="127.0.0.1", server_port=7001):
+    def __init__(self, host="127.0.0.1", port=6000, server_host="127.0.0.1", server_port=7001, public_keys_str=[], public_keys = []):
         self.host = host
         self.port = port
         self.server_host = server_host
         self.server_port = server_port
+        self.public_keys_str = public_keys_str
+        self.public_keys = public_keys
+       
+        
 
     def start(self):
         self.register_with_server()
@@ -21,81 +27,57 @@ class P2PClient:
             else:
                 print("Invalid option!")
 
-    def fetch_server_public_key(self):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
-            client.connect((self.server_host, self.server_port))
-            client.send("GET_PUBLIC_KEY".encode())
-            server_key_data = client.recv(2048)
-            print(f"Received data:\n{server_key_data.decode()}")
-            if b"-----BEGIN RSA PUBLIC KEY-----" in server_key_data:
-                try:
-                    self.server_public_key = rsa.PublicKey.load_pkcs1(server_key_data, "PEM")
-                except ValueError:
-                    print("Invalid public key format received from server.")
-                    raise
-            else:
-                print("Invalid data received: Not a PEM formatted public key.")
-                raise ValueError("Public key not in PEM format.")
-
+        
     def register_with_server(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
             client.connect((self.server_host, self.server_port))
             # ارسال پیام ثبت‌نام
             registration_message = f"REGISTER_CLIENT {self.port}"
-            print(type(registration_message))
             client.send(registration_message.encode())
             
-            # ارسال کلید عمومی
-            # public_key_data = self.public_key.save_pkcs1(format="PEM")
-            # client.send(public_key_data)
-
-            # دریافت پاسخ رمزنگاری‌شده
-            response = client.recv(2048).decode()
-            print(f"response is {response}")
-            # response = rsa.decrypt(encrypted_response, self.private_key).decode()
-            # print(f"Server Response: {response}")
-
-
-    # def request_peers(self):
-    #     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
-    #         client.connect((self.server_host, self.server_port))
-    #         encrypted_message = rsa.encrypt("GET_PEERS".encode(), self.server_public_key)
-    #         client.send(encrypted_message)
-    #         response = rsa.decrypt(client.recv(2048), self.private_key).decode()
-    #         peers = response.split("\n")
-    #         print("Available Clients:")
-    #         for idx, peer in enumerate(peers):
-    #             print(f"{idx+1}. {peer}")
             
-    #         choice = int(input("Enter the number of the client to connect to: ")) - 1
-    #         if choice >= 0 and choice < len(peers):
-    #             target_ip, target_port = peers[choice].split(":")
-    #             target_port = int(target_port)
-    #             self.send_connection_request(target_ip, target_port)
+            response = client.recv(2048).decode()
+            # print(f"response is {response}")
+            self.public_keys_str = response.split("PublicKey")
+            del self.public_keys_str[0]
+            for key in self.public_keys_str:
+                newKey = "PublicKey"
+                newKey += key
+                
+                
+                public_key = serialization.load_pem_public_key(newKey.encode())
+                self.public_keys.append(public_key)
+            print(self.public_keys)
+            
+            
+            
+            
+
+    def encrypt_message(self, message):
+        encrypted_message = message.encode()
+
+        for key in self.public_keys[::-1]:
+            encrypted_message = rsa.encrypt(encrypted_message, key)
+            
+        return encrypted_message
+            
+
+    def send_message(self, message):
+            """ارسال پیام به روتر اول"""
+            encrypted_message = self.encrypt_message(message)
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
+                client.connect((self.router_host, self.router_port))
+                # ارسال کلید عمومی و پیام
+                client.send(encrypted_message)
+                
+                response = client.recv(2048).decode()
+
 
     def request_peers(self):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
-            client.connect((self.server_host, self.server_port))
-            client.send("GET_PEERS".encode())
-            encrypted_response = client.recv(2048)
-            print(f"Encrypted response from server: {encrypted_response}")
-            try:
-                response = rsa.decrypt(encrypted_response, self.private_key).decode()
-                print("Available Clients:")
-                print(response)
-            except rsa.DecryptionError:
-                print("Failed to decrypt the response from the server.")
-                raise
-
-
-    def send_connection_request(self, target_ip, target_port):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
-            client.connect((target_ip, target_port))
-            message = f"CONNECTION_REQUEST {self.host}:{self.port}"
-            encrypted_message = rsa.encrypt(message.encode(), self.server_public_key)
-            client.send(encrypted_message)
-            response = rsa.decrypt(client.recv(2048), self.private_key).decode()
-            print(f"Response from target client: {response}")
+        message = "[CLIENT]REQUEST_PEERS"
+        self.send_message(message)
+        
+        
 
 if __name__ == "__main__":
     client = P2PClient(port=6001)  # پورت متفاوت برای کلاینت

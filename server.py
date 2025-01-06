@@ -42,6 +42,10 @@ class Server:
                 # دریافت کلید عمومی کلاینت
                 self.register_client(conn, message)
                 print("Client with request register")
+                
+            elif message.startswith("CONNECT TO CLIENT"):
+                client_two_port = message.replace("CONNECT TO CLIENT", "")
+                
 
         except Exception as e:
             print(f"Error in server: {e}")

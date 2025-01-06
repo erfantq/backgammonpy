@@ -27,18 +27,16 @@ class Server:
 
             message = conn.recv(4096).decode()
             
-            # print(f"message is {message}")
             
             if "PUBLIC_KEY" in message:
                 message = message.replace("PUBLIC_KEY", "")
                 self.router_keys = message.split("#")
                 print(f" client with request router")
 
-                # print(self.router_keys)
-                
-            elif "GET_PUBLIC_KEY" in message:
-                send_message = self.router_keys
-                self.send_message(send_message)
+            elif message.startswith("REQUEST_PEERS"):
+                clients_list_str = "".join(self.clients)
+                self.respose_client_request(clients_list_str)
+            
                 
             elif message.startswith("REGISTER_CLIENT"):
                 # دریافت کلید عمومی کلاینت
@@ -78,25 +76,18 @@ class Server:
         self.clients.append((f"{client_ip}:{client_port}"))
         print(f"Registered client: {client_ip}:{client_port} .")
             
-        self.send_public_keys(client_port)
+        self.send_public_keys(client_socket)
             
           
-    def send_public_keys(self, client_port):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as router_conn:
-            print(f"client_port {client_port}")
-            router_keys = "" +client_port + ","
-            router_keys += "CLIENT_RCV_KEYS"
-            router_keys += "#".join(self.router_keys)
-                # print(router_keys)
-            router_keys = router_keys.encode()
-            router_conn.connect(("127.0.0.1", 7003))  # روتر آخر
-            router_conn.send(router_keys)
-            print(router_conn)
-            # client_socket.raddr=(("127.0.0.1", 7003))
-            # print(client_socket)
-            # client_socket.send(router_keys)
+    def send_public_keys(self, client_socket):
+        router_keys = "".join(self.router_keys)
+        router_keys = router_keys.encode()
+        client_socket.send(router_keys)
             
 
+    def respose_client_request(self, client_socket, message):
+        client_socket.send(message.encode())
+    
         
         
         
