@@ -47,41 +47,20 @@ class Router:
             elif b"REGISTER_CLIENT" in data:
                 self.register_cilent(data, conn)
             else:
-                # encrypted_message = data.removeprefix(b"[CLIENT]")
                 encrypted_chunks = data
-                # print(f"data: {data}")
-                # parts = data.split(b'||')
-                # message_bytes = parts[0]
-                # signatures = parts[1:]
-                # # print(type(signatures[0]))
-                # original_signatures = pickle.loads(signatures[0])
-                # print(f"signatures_len_in_router: {len(original_signatures)}")
-                # print(f"signatures: {signatures}")
-                # if(self.port == 7001):
-                #     decrypted_message = rsa.verify(message_bytes, original_signatures[2], self.public_key)
-                # elif(self.port == 7002):
-                #     decrypted_message = rsa.verify(message_bytes, original_signatures[1], self.public_key)
-                # elif(self.port == 7003):
-                #     decrypted_message = rsa.verify(message_bytes, original_signatures[0], self.public_key)
+                encrypted_chunks = pickle.loads(encrypted_chunks)
                 decrypted_chunks = []
                 for encrypted_chunk in encrypted_chunks:
+                    print("Decrypting...")
+                    print(encrypted_chunk)
                     decrypted_chunk = rsa.decrypt(encrypted_chunk, self.private_key)
                     decrypted_chunks.append(decrypted_chunk)
-                # decrypted_message = b''.join(decrypted_chunks).decode()
-                # decrypted_message = self.split_message(decrypted_message, self.chunk_size).encode()
-                # print(f"Router {self.port} decrypted message: {message_bytes.decode()}")
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as next_conn:
+                    encrypted_chunks = pickle.dumps(encrypted_chunks)
                     next_conn.connect(self.next_router)
-                    # bytes_data = pickle.dumps(original_signatures)
-                    # if(self.is_last == False):
-                    #     data_to_send = message_bytes + b'||' + bytes_data
-                    # else:
-                    #     data_to_send = message_bytes
-                    # print(f"data_to_send_in_router: {data_to_send}")
                     next_conn.send(decrypted_chunks)
             # elif(b"[SERVER]" in data):
             #     pass
-                
         except Exception as e:
             print(f"Error in router {self.port}: {e}")
         finally:

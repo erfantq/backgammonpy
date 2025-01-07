@@ -28,7 +28,7 @@ class Server:
     def handle_client(self, conn):
         try:
             message = conn.recv(8192)
-            # print(f"This is message {message}")
+            print(f"This is message {message}")
             
             if b"-----BEGIN RSA PUBLIC KEY-----" in message:
                 self.receive_public_keys(message)
@@ -96,7 +96,7 @@ class Server:
         conn.send(serialized_data)
 
     def respose_client_request(self, client_socket, message):
-        client_socket.send(message.encode())
+        client_socket.send(message)
     
         
 if __name__ == "__main__":

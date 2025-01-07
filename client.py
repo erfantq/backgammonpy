@@ -50,28 +50,42 @@ class P2PClient:
                                             
 
     def encrypt_message(self, message):
-        # encrypted_message = message.encode()
-
-        # encrypted_message = rsa.encrypt(encrypted_message, self.public_keys[0])
-
-        # for key in self.public_keys[::-1]:
-        #     chunks = self.split_message(encrypted_message, self.chunk_size)
-        #     encrypted_message = [rsa.encrypt(chunk, key) for chunk in chunks]
-        #     # print(type(key))
-        #     # signature = rsa.sign(encrypted_message, key, 'SHA-256')
-        #     # signatures.append(signature)
-        chunks = self.split_message(message, self.chunk_size)
+        message = message.encode()
+        array_message = [message]
+        chunks = self.split_strings_array_by_bytes(array_message, self.chunk_size)
         encrypted_chunks = []
-        for chunk in message:
-            encrypted_chunk = chunk.encode()
-            for key in self.public_keys[::-1]:  # رمزنگاری از کلید عمومی 3 به 1
-                encrypted_chunk = rsa.encrypt(encrypted_chunk, key)
+        for chunk in chunks:
+            encrypted_chunk = chunk
+            key = self.public_keys[2]
+            encrypted_chunk = rsa.encrypt(encrypted_chunk, key)
             encrypted_chunks.append(encrypted_chunk)
+
+        encrypted_chunks = self.split_strings_array_by_bytes(encrypted_chunks, self.chunk_size)
+        for chunk in chunks:
+            encrypted_chunk = chunk
+            key = self.public_keys[1]
+            encrypted_chunk = rsa.encrypt(encrypted_chunk, key)
+            encrypted_chunks.append(encrypted_chunk)
+
+        encrypted_chunks = self.split_strings_array_by_bytes(encrypted_chunks, self.chunk_size)
+        for chunk in chunks:
+            encrypted_chunk = chunk
+            key = self.public_keys[0]
+            encrypted_chunk = rsa.encrypt(encrypted_chunk, key)
+            encrypted_chunks.append(encrypted_chunk)
+        
         return encrypted_chunks
                 
-            
-    def split_message(self, message, chunk_size):
-        return [message[i:i + chunk_size] for i in range(0, len(message), chunk_size)]
+    def split_strings_array_by_bytes(self, strings_array, byte_size):
+        
+        result = []
+        
+        for input_string in strings_array:
+            byte_data = input_string
+            chunks = [byte_data[i:i + byte_size] for i in range(0, len(byte_data), byte_size)]
+            result.extend([chunk for chunk in chunks])
+        
+        return result
 
     def send_message(self, message):
             """ارسال پیام به روتر اول"""
@@ -87,7 +101,8 @@ class P2PClient:
                 # print(type(data_to_send))
                 # for chunk in encrypted_chunks:
                     # chunk_list = [chunk]
-                    
+                encrypted_chunks = pickle.dumps(encrypted_chunks)
+                
                 client.send(encrypted_chunks)
                 
                 response = client.recv(8192).decode()
