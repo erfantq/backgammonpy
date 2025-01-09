@@ -82,32 +82,61 @@ class P2PClient:
     def connect_to_client(self,client_two_host, client_two_port):
         message = f"CONNECT TO CLIENT{client_two_port}"
         response = self.send_message(message)
-        if response == "YES":        
+        if response == "YES":
+            print("Match accepted! Starting game.")        
             client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             client.connect(client_two_host, client_two_port)
+            client.send("Starting game.".encode())
+        else:
+            print("Match declined.")
 
-    def receive_messages(self):
-        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client.connect((self.router_host, self.router_port))
+    def receive_messages(sock):
         while True:
             try:
-                message = client.recv(1024).decode()
-                print(f"\n{message}")
+                message = sock.recv(1024).decode()
+                # print(f"\n{message}")
+                
                 if message.startswith("CONNECTION_REQUEST"):
                     port = message.replace("CONNECTION_REQUEST", "")
                     while True:
                         response = input(f"{port} want to connect you, do you agree?? (yes/no)")
                         if(response == "yes"):
-                            client.send("YES".encode())
+                            client.sendall("YES".encode())
                             break
                         elif(response == "no"):
-                            client.send("NO".encode())
+                            client.sendall("NO".encode())
                             break
                         else:
                             print("Wrong input")
+                            
+                else:
+                    print(message)
+                            
             except:
                 print("Connection lost.")
                 break
+        
+        # client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # client.connect((self.router_host, self.router_port))
+        # while True:
+        #     try:
+        #         message = client.recv(1024).decode()
+        #         print(f"\n{message}")
+        #         if message.startswith("CONNECTION_REQUEST"):
+        #             port = message.replace("CONNECTION_REQUEST", "")
+        #             while True:
+        #                 response = input(f"{port} want to connect you, do you agree?? (yes/no)")
+        #                 if(response == "yes"):
+        #                     client.send("YES".encode())
+        #                     break
+        #                 elif(response == "no"):
+        #                     client.send("NO".encode())
+        #                     break
+        #                 else:
+        #                     print("Wrong input")
+        #     except:
+        #         print("Connection lost.")
+        #         break
 
 
 def handle_sigint(signal_number, frame):
@@ -137,3 +166,5 @@ if __name__ == "__main__":
     client = P2PClient(port=port, keys=keys)  # پورت متفاوت برای کلاینت
     client.send_message(f"REGISTER_CLIENT {client.port}")
     client.start()
+    threading.Thread(target=receive_messages, args=(client,)).start() # type: ignore
+
