@@ -7,6 +7,7 @@ from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 import base64
 from router import Router
+import json
 
 
 class P2PClient:
@@ -25,7 +26,7 @@ class P2PClient:
                 self.request_peers()
             elif choice == "2":
                 client_two_port = input("Enter port of client : ")
-                self.connect_to_client(self.router_host ,client_two_port)
+                self.connect_to_client(client_two_port)
             elif choice == "3":
                 break
             else:
@@ -66,17 +67,19 @@ class P2PClient:
         message = "REQUEST_PEERS"
         response = self.send_message(message)
     
-    def connect_to_client(self,client_two_host, client_two_port):
-        message = f"CONNECT TO CLIENT{self.port}:{client_two_port}"
-        response = self.send_message(message)
-        if response == "YES":
-            print("Match accepted! Starting game.")        
-            client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            client.connect(client_two_host, client_two_port)
-            client.send("Starting game.".encode())
-        else:
-            print("Match declined.")
-
+    def connect_to_client(self, client_two_port):
+        # message = f"CONNECT TO CLIENT{self.port}:{client_two_port}"
+        # response = self.send_message(message)
+        # if response == "YES":
+        #     print("Match accepted! Starting game.")        
+        #     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        #     client.connect(client_two_host, client_two_port)
+        #     client.send("Starting game.".encode())
+        # else:
+        #     print("Match declined.")
+        message = f"CONNECT_TO_CLIENT:{client_two_port}"
+        self.send_message(message)
+        
     def receive_messages(sock):
         while True:
             try:
@@ -150,7 +153,8 @@ if __name__ == "__main__":
             file.write("Executed")    
     
     port = input("Enter the port number:(6000-6010)")
-    client = P2PClient(port=port, keys=keys)  # پورت متفاوت برای کلاینت
+    client = P2PClient(port=port, keys=keys)  
+    
     client.send_message(f"REGISTER_CLIENT {client.port}")
     client.start()
     threading.Thread(target=client.receive_messages, args=(client,)).start() 

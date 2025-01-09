@@ -35,7 +35,6 @@ class Server:
                 client_port, client_two_port = message.replace("CONNECT TO CLIENT", "").split(":")
                 
                 print(f"client_port is {client_port}")
-                # print(client_port)
                 message = self.connect_two_client(client_two_port, client_port)
             
 
