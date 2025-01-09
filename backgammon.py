@@ -6,7 +6,7 @@ import sys
 #todo: can't split dice rolls
 #todo: make sure the "done" thing works
 exitTerms = ("quit", "exit", "bye","q")
-def main(socket, port_one, port_two):
+def start(socket, port_one, port_two):
 	b = Board()
 	intro = open('readme.txt', 'r')
 	
@@ -24,8 +24,9 @@ def main(socket, port_one, port_two):
 
 	
 	while (line not in exitTerms and (b.xFree < 15 or b.oFree < 15)):
-		socket.send(b.encode())
-		print(b)
+		bo = str(b)
+		socket.send(bo.encode())
+		print(bo)
 		
 		# roll1 = random.randint(1,6)
 		# roll2 = random.randint(1,6)
@@ -39,7 +40,7 @@ def main(socket, port_one, port_two):
 		if(SIDE):
 			print("You rolled a " + str(roll1) + " and a " + str(roll2) + " giving you a total of " + str(total) + " moves.")
 		else:
-			socket.send("You rolled a " + str(roll1) + " and a " + str(roll2) + " giving you a total of " + str(total) + " moves.".encode())
+			socket.send(("You rolled a " + str(roll1) + " and a " + str(roll2) + " giving you a total of " + str(total) + " moves.").encode())
 		if SIDE:
 			print("X, what do you want to do?")
 		else:
@@ -137,5 +138,5 @@ def findSeparation(value):
 			return i
 	return 0
 
-if __name__ == "__main__":
-	main()
+# if __name__ == "__main__":
+# 	main()

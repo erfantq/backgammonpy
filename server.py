@@ -3,6 +3,8 @@ import rsa
 import threading
 import json
 import pickle
+import random
+
 
 class Server: 
     def __init__(self, host="127.0.0.1", port=5000):
@@ -38,6 +40,19 @@ class Server:
                 # print(client_port)
                 message = self.connect_two_client(client_two_port, client_port)
             
+            elif message.startswith("ASK_DICE"):
+               
+                dice1 = random.randint(1,6)
+                dice2 = random.randint(1,6)
+                message = f"{dice1}:{dice2}"
+                
+            elif message.startswith("CHECK_WIN"):
+                free = message.replace("CHECK_WIN", ":")
+                
+                if free < 15:
+                    message = "NO WIN"
+                else:
+                    message = "YOU WIN"
 
 
             conn.sendall(message.encode())
