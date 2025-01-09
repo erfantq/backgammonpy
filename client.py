@@ -67,7 +67,7 @@ class P2PClient:
         response = self.send_message(message)
     
     def connect_to_client(self,client_two_host, client_two_port):
-        message = f"CONNECT TO CLIENT{client_two_port}"
+        message = f"CONNECT TO CLIENT{self.port}:{client_two_port}"
         response = self.send_message(message)
         if response == "YES":
             print("Match accepted! Starting game.")        
