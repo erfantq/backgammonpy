@@ -1,28 +1,35 @@
 import socket
-import rsa
-import json
-import pickle
-from cryptography.hazmat.primitives import serialization
+import signal
 import threading
+import time
+import os
+from Crypto.Cipher import AES
+from Crypto.Random import get_random_bytes
+import base64
+from router import Router
 
 
 class P2PClient:
-    def __init__(self, host="127.0.0.1", port=6000, router_host="127.0.0.1", router_port=7001, public_keys_str=[], public_keys = [], chunk_size=53):
+    # def __init__(self, host="127.0.0.1", port=6000, router_host="127.0.0.1", router_port=7001, public_keys_str=[], public_keys = [], chunk_size=53):
+    #     self.host = host
+    #     self.port = port
+    #     self.router_host = router_host
+    #     self.router_port = router_port
+    #     self.public_keys_str = public_keys_str
+    #     self.public_keys = public_keys
+    #     self.chunk_size = chunk_size
+        # public_key1, private_key1 = rsa.newkeys(512)
+        # public_key2, private_key2 = rsa.newkeys(512)
+        # public_key3, private_key3 = rsa.newkeys(512)
+
+    def __init__(self, host="127.0.0.1", port=6000, router_host="127.0.0.1", router_port=7001, keys=None):
         self.host = host
         self.port = port
         self.router_host = router_host
         self.router_port = router_port
-        self.public_keys_str = public_keys_str
-        self.public_keys = public_keys
-        self.chunk_size = chunk_size
-        public_key1, private_key1 = rsa.newkeys(512)
-        public_key2, private_key2 = rsa.newkeys(512)
-        public_key3, private_key3 = rsa.newkeys(512)
+        self.keys = keys
        
     def start(self):
-        self.register_with_server()
-        threading.Thread(target=self.receive_messages, args=()).start()
-
         while True:
             choice = input("1. See client list\n2. connect ro someone\n3. Exit\nEnter choice: ")
             if choice == "1":
@@ -33,87 +40,44 @@ class P2PClient:
             elif choice == "3":
                 break
             else:
-                print("Invalid option!")
+                print("Invalid option!")                                            
 
-        
-    def register_with_server(self):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
-            client.connect((self.router_host, self.router_port))
-            # ارسال پیام ثبت‌نام
-            registration_message = f"REGISTER_CLIENT {self.port}"
-            client.send(registration_message.encode())
-            
-            response = client.recv(8192)
-            received_keys = pickle.loads(response)
-            print(f"reseived_keys is {received_keys}")
-            self.public_keys = received_keys
-                                            
-
-    def encrypt_message(self, message):
-        message = message.encode()
-        array_message = [message]
-        chunks = self.split_strings_array_by_bytes(array_message, self.chunk_size)
-        encrypted_chunks = []
-        for chunk in chunks:
-            encrypted_chunk = chunk
-            key = self.public_keys[2]
-            encrypted_chunk = rsa.encrypt(encrypted_chunk, key)
-            encrypted_chunks.append(encrypted_chunk)
-
-        encrypted_chunks = self.split_strings_array_by_bytes(encrypted_chunks, self.chunk_size)
-        for chunk in chunks:
-            encrypted_chunk = chunk
-            key = self.public_keys[1]
-            encrypted_chunk = rsa.encrypt(encrypted_chunk, key)
-            encrypted_chunks.append(encrypted_chunk)
-
-        encrypted_chunks = self.split_strings_array_by_bytes(encrypted_chunks, self.chunk_size)
-        for chunk in chunks:
-            encrypted_chunk = chunk
-            key = self.public_keys[0]
-            encrypted_chunk = rsa.encrypt(encrypted_chunk, key)
-            encrypted_chunks.append(encrypted_chunk)
-        
-        return encrypted_chunks
-                
-    def split_strings_array_by_bytes(self, strings_array, byte_size):
-        
-        result = []
-        
-        for input_string in strings_array:
-            byte_data = input_string
-            chunks = [byte_data[i:i + byte_size] for i in range(0, len(byte_data), byte_size)]
-            result.extend([chunk for chunk in chunks])
-        
-        return result
+    def encrypt_message(self, key, message):
+        cipher = AES.new(key, AES.MODE_EAX)
+        nonce = cipher.nonce
+        ciphertext, tag = cipher.encrypt_and_digest(message.encode())
+        return base64.b64encode(nonce + ciphertext).decode()
+      
+    def decrypt_message(self, key, encrypted_message):
+        data = base64.b64decode(encrypted_message.encode())
+        nonce = data[:16]
+        ciphertext = data[16:]
+        cipher = AES.new(key, AES.MODE_EAX, nonce=nonce)
+        return cipher.decrypt(ciphertext).decode()          
 
     def send_message(self, message):
-            """ارسال پیام به روتر اول"""
-            encrypted_chunks = self.encrypt_message(message)
-            # print(f"signatures_len: {len(signatures)}")
-            # bytes_data = pickle.dumps(signatures)
-            # data_to_send = encrypted_message + b'||' + bytes_data
-            # print(f"data_to_send: {encrypted_message}")
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
-                client.connect((self.router_host, self.router_port))
-                # ارسال کلید عمومی و پیام
-                # data_to_send = b'REQUEST_PEERS||b8\xf9q\x03\xa8/.J\xdfAd\t\xd8\tC=\x9b|`)\xf0\x8e\xfd\xdc\xd6/\x19J\xbf\xfe]\x85~\xc8\xb4r\xae\x8f\r\x92\x9d\xbb\xb4f\x10\xce\xe3\xf3\xbd\xbf\xa3\xcd\x7f\xf6\xa0\xf0\xc3\x18\xf6:\xf5\x90\xad||\x1e\xdf\xc8\x96\xcc*R82\x02jv\x1dA\xd7MO\xa6;\x7f\xc0Dz\xf0\x9aNv\xf1\x05<\x04<\xe6\xb2\xf7\xb4$;\x8fP;)\x89\xee\x18\x9e\x03CgL\x92xyn\x99eFE\x1c)\xd5\x92^?||\x82wx\x1e?{\xd7\x9d\xc1\x9c\xcc\xa1(\xfd,Y\xd5\xd8\x1d@\xdd\xe4"\x9c\xae>\x0f\x1b1\x8b\x92\xb7\x86\xa7k3\x03\x8c\xd4\xdc\x8eo\xb70\xfe%\xd0\xa6F)?\xaa\xbb3\x1e\xac\x7f\xa6\xd3rk\xbcH\xd5'
-                # print(type(data_to_send))
-                # for chunk in encrypted_chunks:
-                    # chunk_list = [chunk]
-                encrypted_chunks = pickle.dumps(encrypted_chunks)
-                
-                client.send(encrypted_chunks)
-                
-                response = client.recv(8192).decode()
-                
-                return response
+        """send message to first router."""
+        encrypted_message = message
+        for key in reversed(self.keys):
+            encrypted_message = self.encrypt_message(key, encrypted_message)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
+            client.connect((self.router_host, self.router_port))
+            client.sendall(encrypted_message.encode())
+            response = client.recv(1024).decode()
 
-
+        decrypted_response = response
+        for key in self.keys:
+            decrypted_response = self.decrypt_message(key, decrypted_response)
+        
+        print(f"Client received response: {decrypted_response}")        
+        
+        return decrypted_response    
+            
     def request_peers(self):
         message = "REQUEST_PEERS"
-        self.send_message(message)
-        
+        response = self.send_message(message)
+    
+
         
     def connect_to_client(self,client_two_host, client_two_port):
         message = f"CONNECT TO CLIENT{client_two_port}"
@@ -145,6 +109,31 @@ class P2PClient:
                 print("Connection lost.")
                 break
 
+
+def handle_sigint(signal_number, frame):
+    os.remove("first_run.lock")
+    exit(0)
+
+def start_router(port, next_port=None, key=None):
+    router = Router(port=port, next_router=next_port, key=key)
+    router.start()
+
 if __name__ == "__main__":
-    client = P2PClient(port=6001)  # پورت متفاوت برای کلاینت
+    signal.signal(signal.SIGINT, handle_sigint)
+
+    # keys = [get_random_bytes(16) for _ in range(3)]  # Three random keys for encryption layers
+    keys = [b'\xbd_+\xa2\xf0\x7f\xd8\x0c\xce\xf3\xfe\x0f`8E\xd0', b'\x0b\x8be\xce\xe3\xfa9\xfb4o\xe4\x05\xb7\xda\x89\xc2', b'\xed\xfa\xcf\x16@\x909/\x80o\xd2\xadupET']
+    
+    
+    status_file = "first_run.lock"
+    if not os.path.exists(status_file):
+        threading.Thread(target=start_router, args=(7001, ("127.0.0.1", 7002), keys[0]), daemon=True).start()
+        threading.Thread(target=start_router, args=(7002, ("127.0.0.1", 7003), keys[1]), daemon=True).start()
+        threading.Thread(target=start_router, args=(7003, ("127.0.0.1", 5000), keys[2]), daemon=True).start()
+        with open(status_file, "w") as file:
+            file.write("Executed")    
+    
+    port = input("Enter the port number:(6000-6010)")
+    client = P2PClient(port=port, keys=keys)  # پورت متفاوت برای کلاینت
+    client.send_message(f"REGISTER_CLIENT {client.port}")
     client.start()

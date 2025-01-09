@@ -2,7 +2,7 @@ import socket
 import threading
 import time
 from Crypto.Cipher import AES
-from Crypto.Random import get_random_bytesc
+from Crypto.Random import get_random_bytes
 import base64
 
 # Utility functions for encryption and decryption

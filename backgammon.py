@@ -10,7 +10,11 @@ def main():
 	b = Board()
 	intro = open('readme.txt', 'r')
 	
-	SIDE = True #True if X, false if O
+	if(len(sys.argv[1]) > 1):
+		if(sys.argv[1].lower() == "x"):
+			SIDE = True
+		else:
+			SIDE = False
 	for line in intro:
 		print(line)
 
