@@ -32,10 +32,8 @@ class Server:
                 for item in self.clients:
                     message += item
             elif message.startswith("CONNECT TO CLIENT"):
-                client_two_port = message.replace("CONNECT TO CLIENT", "")
-                client_address = conn.getpeername()
-                client_port = client_address[1]
-                print(f"client_address is {client_address}")
+                client_port,client_two_port = message.replace("CONNECT TO CLIENT", "").split(":")
+                
                 print(f"client_port is {client_port}")
                 # print(client_port)
                 message = self.connect_two_client(client_two_port, client_port)
