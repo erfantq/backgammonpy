@@ -31,6 +31,16 @@ class Server:
                 message = ""
                 for item in self.clients:
                     message += item
+            elif message.startswith("CONNECT TO CLIENT"):
+                client_two_port = message.replace("CONNECT TO CLIENT", "")
+                client_address = conn.getpeername()
+                client_port = client_address[1]
+                print(f"client_address is {client_address}")
+                print(f"client_port is {client_port}")
+                # print(client_port)
+                message = self.connect_two_client(client_two_port, client_port)
+            
+                
 
 
 
@@ -65,6 +75,13 @@ class Server:
         self.clients.append((f"{client_ip}:{client_port}"))
         print(f"Registered client: {client_ip}:{client_port} .")
             
+            
+    def connect_two_client(self, client_two_port, client_port):
+        if client_two_port in self.clients:
+            self.clients[client_two_port].sendall(f"CONNECTION_REQUEST{client_port}".decode())
+            response = self.clients[client_two_port].recv(1024).decode()
+            return response
+        
         
 if __name__ == "__main__":
     server = Server()
