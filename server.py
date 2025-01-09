@@ -32,15 +32,12 @@ class Server:
                 for item in self.clients:
                     message += item
             elif message.startswith("CONNECT TO CLIENT"):
-                client_port,client_two_port = message.replace("CONNECT TO CLIENT", "").split(":")
+                client_port, client_two_port = message.replace("CONNECT TO CLIENT", "").split(":")
                 
                 print(f"client_port is {client_port}")
                 # print(client_port)
                 message = self.connect_two_client(client_two_port, client_port)
             
-                
-
-
 
 
             conn.sendall(message.encode())
@@ -76,8 +73,13 @@ class Server:
             
     def connect_two_client(self, client_two_port, client_port):
         if client_two_port in self.clients:
-            self.clients[client_two_port].sendall(f"CONNECTION_REQUEST{client_port}".decode())
-            response = self.clients[client_two_port].recv(1024).decode()
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
+                client.connect((self.host, client_two_port))
+                client.sendall(f"CONNECTION_REQUEST{client_port}".encode())
+                response = client.recv(1024).decode()
+
+            # self.clients[client_two_port].sendall(f"CONNECTION_REQUEST{client_port}".encode())
+            # response = self.clients[client_two_port].recv(1024).decode()
             return response
         
         

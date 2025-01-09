@@ -153,5 +153,5 @@ if __name__ == "__main__":
     client = P2PClient(port=port, keys=keys)  # پورت متفاوت برای کلاینت
     client.send_message(f"REGISTER_CLIENT {client.port}")
     client.start()
-    threading.Thread(target=receive_messages, args=(client,)).start() # type: ignore
+    threading.Thread(target=client.receive_messages, args=(client,)).start() 
 
