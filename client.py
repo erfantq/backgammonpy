@@ -15,14 +15,14 @@ class P2PClient:
         self.public_keys_str = public_keys_str
         self.public_keys = public_keys
         self.chunk_size = chunk_size
+        public_key1, private_key1 = rsa.newkeys(512)
+        public_key2, private_key2 = rsa.newkeys(512)
+        public_key3, private_key3 = rsa.newkeys(512)
        
     def start(self):
         self.register_with_server()
         threading.Thread(target=self.receive_messages, args=()).start()
 
-        
-       
-        
         while True:
             choice = input("1. See client list\n2. connect ro someone\n3. Exit\nEnter choice: ")
             if choice == "1":
