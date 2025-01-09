@@ -1,96 +1,52 @@
-import socket
-import threading
-import time
-from Crypto.Cipher import AES
-from Crypto.Random import get_random_bytes
-import base64
+import rsa
 
-# Utility functions for encryption and decryption
-def encrypt_message(key, message):
-    cipher = AES.new(key, AES.MODE_EAX)
-    nonce = cipher.nonce
-    ciphertext, tag = cipher.encrypt_and_digest(message.encode())
-    return base64.b64encode(nonce + ciphertext).decode()
+public_key1, private_key1 = rsa.newkeys(512)
+public_key2, private_key2 = rsa.newkeys(512)
+public_key3, private_key3 = rsa.newkeys(512)
 
-def decrypt_message(key, encrypted_message):
-    data = base64.b64decode(encrypted_message.encode())
-    nonce = data[:16]
-    ciphertext = data[16:]
-    cipher = AES.new(key, AES.MODE_EAX, nonce=nonce)
-    return cipher.decrypt(ciphertext).decode()
+def split_into_chunks(data, chunk_size):
+    return [data[i:i + chunk_size] for i in range(0, len(data), chunk_size)]
 
-# Router class
-class Router:
-    def __init__(self, port, next_port, key):
-        self.port = port
-        self.next_port = next_port
-        self.key = key
+def encrypt_message(message):
 
-    def handle_client(self, conn):
-        data = conn.recv(1024).decode()
-        print(f"Router {self.port} received: {data}")
-        decrypted_data = decrypt_message(self.key, data)
+    message_bytes = message.encode()  
 
-        if self.next_port:
-            # Send to the next router
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.connect(("127.0.0.1", self.next_port))
-                s.sendall(decrypted_data.encode())
-                response = s.recv(1024)
-            encrypted_response = encrypt_message(self.key, response.decode())
-            conn.sendall(encrypted_response.encode())
-        else:
-            # Final destination (server)
-            response = f"Server processed: {decrypted_data}"
-            encrypted_response = encrypt_message(self.key, response)
-            conn.sendall(encrypted_response.encode())
+    chunks = split_into_chunks(message_bytes, 53)   
+    encrypted_chunks = [rsa.encrypt(chunk, public_key1) for chunk in chunks]
 
-    def start(self):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(("127.0.0.1", self.port))
-            s.listen()
-            print(f"Router {self.port} listening...")
-            while True:
-                conn, _ = s.accept()
-                threading.Thread(target=self.handle_client, args=(conn,)).start()
+    encrypted_chunks = [
+        rsa.encrypt(chunk, public_key2)
+        for chunk in split_into_chunks(b"".join(encrypted_chunks), 53)
+    ]
 
-# Client class
-class Client:
-    def __init__(self, router_port, keys):
-        self.router_port = router_port
-        self.keys = keys
+    encrypted_chunks = [
+        rsa.encrypt(chunk, public_key3)
+        for chunk in split_into_chunks(b"".join(encrypted_chunks), 53)
+    ]
 
-    def send_message(self, message):
-        encrypted_message = message
-        for key in reversed(self.keys):
-            encrypted_message = encrypt_message(key, encrypted_message)
+    return encrypted_chunks
 
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect(("127.0.0.1", self.router_port))
-            s.sendall(encrypted_message.encode())
-            response = s.recv(1024).decode()
+def decrypt_message(encrypted_chunks):
 
-        decrypted_response = response
-        for key in self.keys:
-            decrypted_response = decrypt_message(key, decrypted_response)
+    decrypted_chunks = [rsa.decrypt(chunk, private_key3) for chunk in encrypted_chunks]
 
-        print(f"Client received: {decrypted_response}")
+    decrypted_chunks = [
+        rsa.decrypt(chunk, private_key2)
+        for chunk in split_into_chunks(b"".join(decrypted_chunks), 64)
+    ]
 
-# Start routers
-def start_router(port, next_port=None, key=None):
-    router = Router(port, next_port, key)
-    router.start()
+    decrypted_chunks = [
+        rsa.decrypt(chunk, private_key1)
+        for chunk in split_into_chunks(b"".join(decrypted_chunks), 64)
+    ]
 
-# Main execution
-if __name__ == "__main__":
-    keys = [get_random_bytes(16) for _ in range(3)]  # Three random keys for encryption layers
-    time.sleep(1)  # Allow time for routers to start
+    return b"".join(decrypted_chunks).decode()
 
-    # Start routers in separate threads, passing the correct keys to each router
-    threading.Thread(target=start_router, args=(5000, 5001, keys[0]), daemon=True).start()
-    threading.Thread(target=start_router, args=(5001, 5002, keys[1]), daemon=True).start()
-    threading.Thread(target=start_router, args=(5002, None, keys[2]), daemon=True).start()
+message = "REQUEST_PEERS"
+print("Origin:", message)
 
-    # Start the client
-    client = Client(5000, keys)
-    client.send_message("Hello, Server!")
+encrypted_chunks = encrypt_message(message)
+print("Encryp:", encrypted_chunks)
+
+decrypted_message = decrypt_message(encrypted_chunks)
+print("Decrypt:", decrypted_message)

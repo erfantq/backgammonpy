@@ -10,17 +10,6 @@ from router import Router
 
 
 class P2PClient:
-    # def __init__(self, host="127.0.0.1", port=6000, router_host="127.0.0.1", router_port=7001, public_keys_str=[], public_keys = [], chunk_size=53):
-    #     self.host = host
-    #     self.port = port
-    #     self.router_host = router_host
-    #     self.router_port = router_port
-    #     self.public_keys_str = public_keys_str
-    #     self.public_keys = public_keys
-    #     self.chunk_size = chunk_size
-        # public_key1, private_key1 = rsa.newkeys(512)
-        # public_key2, private_key2 = rsa.newkeys(512)
-        # public_key3, private_key3 = rsa.newkeys(512)
 
     def __init__(self, host="127.0.0.1", port=6000, router_host="127.0.0.1", router_port=7001, keys=None):
         self.host = host
@@ -31,7 +20,7 @@ class P2PClient:
        
     def start(self):
         while True:
-            choice = input("1. See client list\n2. connect ro someone\n3. Exit\nEnter choice: ")
+            choice = input("1. See client list\n2. connect to someone\n3. Exit\nEnter choice: ")
             if choice == "1":
                 self.request_peers()
             elif choice == "2":
@@ -77,8 +66,6 @@ class P2PClient:
         message = "REQUEST_PEERS"
         response = self.send_message(message)
     
-
-        
     def connect_to_client(self,client_two_host, client_two_port):
         message = f"CONNECT TO CLIENT{client_two_port}"
         response = self.send_message(message)

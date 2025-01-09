@@ -8,21 +8,7 @@ from Crypto.Random import get_random_bytes
 import base64
 
 
-class Router:
-    
-    # def __init__(self, host="127.0.0.1", port=7001, next_router=None, pervious_router= None, is_first=False, is_last=False, str_keys="", received_keys=[], chenk_size=53):
-    #     self.host = host
-    #     self.port = port
-    #     self.next_router = next_router
-    #     self.is_first = is_first
-    #     self.is_last = is_last
-    #     self.str_keys = str_keys
-    #     self.pervious_router = pervious_router
-    #     self.public_key, self.private_key = None, None
-    #     self.received_keys = received_keys
-    #     self.chunk_size = chenk_size
-    #     self.router1_handshake = 0
-    #     self.router2_handshake = 0
+class Router:    
         
     def __init__(self, host="127.0.0.1", port=7001, next_router=None, key=None):
         self.host = host
