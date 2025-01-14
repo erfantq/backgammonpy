@@ -28,7 +28,7 @@ class P2PClient:
                 self.request_peers()
             elif choice == "2":
                 client_two_port = input("Enter port of client : ")
-                self.connect_to_client(self.router_host ,client_two_port)
+                self.connect_to_client(self.host ,client_two_port)
             elif choice == "3":
                 break
             else:
@@ -71,51 +71,64 @@ class P2PClient:
     
     def connect_to_client(self,client_two_host, client_two_port):
         message = f"CONNECT TO CLIENT{self.port}:{client_two_port}"
-        response = self.send_message(message)
+        # response = self.send_message(message)
+        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # client.bind((self.host, self.port))
+        print(f"request for client {client_two_port}")
+        client.connect((client_two_host, client_two_port))
+        # client.send("Starting game.".encode())
+        client.send(f"CONNECTION_REQUEST{self.port}".encode())
+        response = client.recv(1024).decode()
         if response == "YES":
             print("Match accepted! Starting game.")        
-            client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            client.connect(client_two_host, client_two_port)
-            client.send("Starting game.".encode())
-            self.start(client)
+            self.start_game(client)
+            
         else:
             print("Match declined.")
 
-    def receive_messages(sock):
-        while True:
-            try:
-                message = sock.recv(1024).decode()
-                # print(f"\n{message}")
-                
-                if message.startswith("CONNECTION_REQUEST"):
-                    port = message.replace("CONNECTION_REQUEST", "")
-                    while True:
-                        response = input(f"{port} want to connect you, do you agree?? (yes/no)")
-                        if(response == "yes"):
-                            sock.sendall("YES".encode())
-                            break
-                        elif(response == "no"):
-                            sock.sendall("NO".encode())
-                            break
-                        else:
-                            print("Wrong input")
-                            
-                            
-                else:
-                    print(message)
-                    if message.startswith("O, what do you want to do?") or message.startswith("You didn't roll that!") or message.startswith("YThat move is not allowed.  Please try again.") or message.startswith("the game is not over yet"):
-                        line = input()
-                        sock.sendall(line.encode())
-                        
+    def receive_messages(self):
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.bind((self.host, self.port))
+            sock.listen(1)
+            print(f"client listning on {self.host} {self.port}")
+            while True:
+                conn, addr = sock.accept()
+                try:
+                    message = conn.recv(1024).decode()
+                    # print(f"\n{message}")
                     
-                        
+                    if message.startswith("CONNECTION_REQUEST"):
+                        port = message.replace("CONNECTION_REQUEST", "")
+                        while True:
+                            response = input(f"{port} want to connect you, do you agree?? (yes/no)")
+                            if(response == "yes"):
+                                conn.sendall("YES".encode())
+                                break
+                            elif(response == "no"):
+                                conn.sendall("NO".encode())
+                                break
+                            else:
+                                print("Wrong input")
+                                
+                                
+                    else:
+                        print(message)
+                        if message.startswith("O, what do you want to do?") or message.startswith("You didn't roll that!") or message.startswith("YThat move is not allowed.  Please try again.") or message.startswith("the game is not over yet"):
+                            line = input()
+                            conn.sendall(line.encode())
+                            
                         
                             
-               
                             
-            except:
-                print("Connection lost.")
-                break
+                                
+                
+                                
+                except:
+                    print("Connection lost.")
+                    break
+        except Exception as e:
+            print(f"Error in receive_messages: {e}")
         
         # client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # client.connect((self.router_host, self.router_port))
@@ -140,7 +153,7 @@ class P2PClient:
         #         break
         
     exitTerms = ("quit", "exit", "bye","q")
-    def start(self, socket):
+    def start_game(self, socket):
         b = Board()
         intro = open('readme.txt', 'r')
         
@@ -192,7 +205,7 @@ class P2PClient:
                         print("Your rival left the game, you win")
                         socket.send("you left the game. you lost!!".encode())
                         break
-                elif line.capitalize() is "WON" :
+                elif line.capitalize() == "WON" :
                     if SIDE :
                         free = b.xFree
                     else:
@@ -338,5 +351,5 @@ if __name__ == "__main__":
     client = P2PClient(port=port, keys=keys)  # پورت متفاوت برای کلاینت
     client.send_message(f"REGISTER_CLIENT {client.port}")
     client.start()
-    threading.Thread(target=client.receive_messages, args=(client,)).start() 
-
+    threading.Thread(target=client.receive_messages, args=()).start() 
+    print("thred start")
