@@ -74,10 +74,10 @@ class P2PClient:
         # response = self.send_message(message)
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # client.bind((self.host, self.port))
-        print(f"request for client {client_two_port}")
-        client.connect((client_two_host, client_two_port))
+        client.connect((client_two_host, int(client_two_port)))
         # client.send("Starting game.".encode())
         client.send(f"CONNECTION_REQUEST{self.port}".encode())
+        print(f"request for client {client_two_port}")
         response = client.recv(1024).decode()
         if response == "YES":
             print("Match accepted! Starting game.")        
@@ -89,11 +89,13 @@ class P2PClient:
     def receive_messages(self):
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.bind((self.host, self.port))
+            sock.bind((self.host, int(self.port)))
+            # print(f"client listning on {self.host} {self.port}")
             sock.listen(1)
-            print(f"client listning on {self.host} {self.port}")
             while True:
                 conn, addr = sock.accept()
+                print("listened")
+
                 try:
                     message = conn.recv(1024).decode()
                     # print(f"\n{message}")
@@ -101,10 +103,18 @@ class P2PClient:
                     if message.startswith("CONNECTION_REQUEST"):
                         port = message.replace("CONNECTION_REQUEST", "")
                         while True:
+                            print(f"want to connect you, do you agree?? ")
                             response = input(f"{port} want to connect you, do you agree?? (yes/no)")
                             if(response == "yes"):
                                 conn.sendall("YES".encode())
-                                break
+                                while True:
+                                    message = conn.recv(1024).decode()
+                                    print(message)
+                                    if message.startswith("O, what do you want to do?") or message.startswith("You didn't roll that!") or message.startswith("YThat move is not allowed.  Please try again.") or message.startswith("the game is not over yet"):
+                                        line = input()
+                                        conn.sendall(line.encode())
+                                    
+                                
                             elif(response == "no"):
                                 conn.sendall("NO".encode())
                                 break
@@ -157,12 +167,13 @@ class P2PClient:
         b = Board()
         intro = open('readme.txt', 'r')
         
-        if(len(sys.argv[1]) > 1):
-            if(sys.argv[1].lower() == "x"):
-                SIDE = True
-            else:
-                SIDE = False			
+        # if(len(sys.argv[1]) > 1):
+        #     if(sys.argv[1].lower() == "x"):
+        #         SIDE = True
+        #     else:
+        #         SIDE = False			
 
+        SIDE = True
         for line in intro:
             socket.send(line.encode())
             print(line)
@@ -178,6 +189,8 @@ class P2PClient:
             roll1, roll2 = self.send_message("ASK_DICE").split(":")
     
             turnComplete = False
+            roll1 = int(roll1)
+            roll2 = int(roll2)
             total = roll1 + roll2
             if (roll1 == roll2):
                 total *= 2
@@ -190,7 +203,8 @@ class P2PClient:
                 print("X, what do you want to do?")
             else:
                 socket.send("O, what do you want to do?".encode())
-            while (not turnComplete and line not in self.exitTerms and total > 0):
+            line = ""
+            while (not turnComplete and line not in self.exitTerms and int(total) > 0):
                 if(SIDE):
                     line = input()
                 else:
@@ -350,6 +364,6 @@ if __name__ == "__main__":
     port = input("Enter the port number:(6000-6010)")
     client = P2PClient(port=port, keys=keys)  # پورت متفاوت برای کلاینت
     client.send_message(f"REGISTER_CLIENT {client.port}")
-    client.start()
     threading.Thread(target=client.receive_messages, args=()).start() 
-    print("thred start")
+    # print("thred start")
+    client.start()

@@ -6,26 +6,22 @@ import sys
 #todo: can't split dice rolls
 #todo: make sure the "done" thing works
 exitTerms = ("quit", "exit", "bye","q")
-def start(socket, port_one, port_two):
+def main():
 	b = Board()
 	intro = open('readme.txt', 'r')
 	
 	if(len(sys.argv[1]) > 1):
 		if(sys.argv[1].lower() == "x"):
 			SIDE = True
-			SIDE_PORT = port_one
 		else:
 			SIDE = False			
-			SIDE_PORT = port_two
 
 	for line in intro:
-		socket.send(line.encode())
 		print(line)
 
 	
 	while (line not in exitTerms and (b.xFree < 15 or b.oFree < 15)):
 		bo = str(b)
-		socket.send(bo.encode())
 		print(bo)
 		
 		# roll1 = random.randint(1,6)
@@ -138,5 +134,5 @@ def findSeparation(value):
 			return i
 	return 0
 
-# if __name__ == "__main__":
-# 	main()
+if __name__ == "__main__":
+	main()
