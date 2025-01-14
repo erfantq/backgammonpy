@@ -13,24 +13,30 @@ import sys
 
 
 class P2PClient:
+    
 
-    def __init__(self, host="127.0.0.1", port=6000, router_host="127.0.0.1", router_port=7001, keys=None):
+    def __init__(self, host="127.0.0.1", port=6000, router_host="127.0.0.1", router_port=7001, keys=None, thread_start=None):
         self.host = host
         self.port = port
         self.router_host = router_host
         self.router_port = router_port
         self.keys = keys
-       
+        self.thread_start = thread_start
+               
     def start(self):
         while True:
             choice = input("1. See client list\n2. connect to someone\n3. Exit\nEnter choice: ")
+            
             if choice == "1":
                 self.request_peers()
             elif choice == "2":
                 client_two_port = input("Enter port of client : ")
                 self.connect_to_client(self.host ,client_two_port)
+                # break
             elif choice == "3":
                 break
+            
+            
             else:
                 print("Invalid option!")                                            
 
@@ -106,13 +112,17 @@ class P2PClient:
                             print(f"want to connect you, do you agree?? ")
                             response = input(f"{port} want to connect you, do you agree?? (yes/no)")
                             if(response == "yes"):
+                                # self.thread_start.join()
+                                # print("joined")
                                 conn.sendall("YES".encode())
                                 while True:
                                     message = conn.recv(1024).decode()
                                     print(message)
                                     if message.startswith("O, what do you want to do?") or message.startswith("You didn't roll that!") or message.startswith("YThat move is not allowed.  Please try again.") or message.startswith("the game is not over yet"):
+                                        
                                         line = input()
                                         conn.sendall(line.encode())
+                                        print("thanks")
                                     
                                 
                             elif(response == "no"):
@@ -364,6 +374,9 @@ if __name__ == "__main__":
     port = input("Enter the port number:(6000-6010)")
     client = P2PClient(port=port, keys=keys)  # پورت متفاوت برای کلاینت
     client.send_message(f"REGISTER_CLIENT {client.port}")
+    thread_start = threading.Thread(target=client.start, args=())
+    client.thread_start = thread_start
+    thread_start.start()
     threading.Thread(target=client.receive_messages, args=()).start() 
     # print("thred start")
-    client.start()
+    # client.start()
