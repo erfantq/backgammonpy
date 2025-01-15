@@ -110,8 +110,7 @@ class P2PClient:
                             print(f"want to connect you, do you agree?? ")
                             response = input(f"{port} want to connect you, do you agree?? (yes/no)")
                             if(response == "yes"):
-                                # self.thread_start.join()
-                                # print("joined")
+                            
                                 conn.sendall("YES".encode())
                                 while True:
                                     message = conn.recv(1024).decode()
@@ -122,10 +121,9 @@ class P2PClient:
                                         conn.sendall(line.encode())
                                         print("thanks")
                                         
-                                    else:
-                                        break
                                     
-                                break
+                                    
+                                
                             
                             elif(response == "no"):
                                 conn.sendall("NO".encode())
