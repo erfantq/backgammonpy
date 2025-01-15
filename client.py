@@ -15,16 +15,17 @@ import sys
 class P2PClient:
     
 
-    def __init__(self, host="127.0.0.1", port=6000, router_host="127.0.0.1", router_port=7001, keys=None, thread_start=None):
+    def __init__(self, host="127.0.0.1", port=6000, router_host="127.0.0.1", router_port=7001, keys=None):
         self.host = host
         self.port = port
         self.router_host = router_host
         self.router_port = router_port
         self.keys = keys
-        self.thread_start = thread_start
                
     def start(self):
         while True:
+            
+                
             choice = input("1. See client list\n2. connect to someone\n3. Exit\nEnter choice: ")
             
             if choice == "1":
@@ -32,13 +33,13 @@ class P2PClient:
             elif choice == "2":
                 client_two_port = input("Enter port of client : ")
                 self.connect_to_client(self.host ,client_two_port)
-                # break
             elif choice == "3":
                 break
             
             
             else:
-                print("Invalid option!")                                            
+                print("Invalid option!")   
+                                                         
 
     def encrypt_message(self, key, message):
         cipher = AES.new(key, AES.MODE_EAX)
@@ -96,12 +97,9 @@ class P2PClient:
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.bind((self.host, int(self.port)))
-            # print(f"client listning on {self.host} {self.port}")
             sock.listen(1)
             while True:
                 conn, addr = sock.accept()
-                print("listened")
-
                 try:
                     message = conn.recv(1024).decode()
                     # print(f"\n{message}")
@@ -123,8 +121,12 @@ class P2PClient:
                                         line = input()
                                         conn.sendall(line.encode())
                                         print("thanks")
+                                        
+                                    else:
+                                        break
                                     
-                                
+                                break
+                            
                             elif(response == "no"):
                                 conn.sendall("NO".encode())
                                 break
@@ -132,12 +134,7 @@ class P2PClient:
                                 print("Wrong input")
                                 
                                 
-                    else:
-                        print(message)
-                        if message.startswith("O, what do you want to do?") or message.startswith("You didn't roll that!") or message.startswith("YThat move is not allowed.  Please try again.") or message.startswith("the game is not over yet"):
-                            line = input()
-                            conn.sendall(line.encode())
-                            
+                   
                         
                             
                             
@@ -150,28 +147,7 @@ class P2PClient:
         except Exception as e:
             print(f"Error in receive_messages: {e}")
         
-        # client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # client.connect((self.router_host, self.router_port))
-        # while True:
-        #     try:
-        #         message = client.recv(1024).decode()
-        #         print(f"\n{message}")
-        #         if message.startswith("CONNECTION_REQUEST"):
-        #             port = message.replace("CONNECTION_REQUEST", "")
-        #             while True:
-        #                 response = input(f"{port} want to connect you, do you agree?? (yes/no)")
-        #                 if(response == "yes"):
-        #                     client.send("YES".encode())
-        #                     break
-        #                 elif(response == "no"):
-        #                     client.send("NO".encode())
-        #                     break
-        #                 else:
-        #                     print("Wrong input")
-        #     except:
-        #         print("Connection lost.")
-        #         break
-        
+       
     exitTerms = ("quit", "exit", "bye","q")
     def start_game(self, socket):
         b = Board()
@@ -374,9 +350,5 @@ if __name__ == "__main__":
     port = input("Enter the port number:(6000-6010)")
     client = P2PClient(port=port, keys=keys)  # پورت متفاوت برای کلاینت
     client.send_message(f"REGISTER_CLIENT {client.port}")
-    thread_start = threading.Thread(target=client.start, args=())
-    client.thread_start = thread_start
-    thread_start.start()
+    threading.Thread(target=client.start, args=()).start()
     threading.Thread(target=client.receive_messages, args=()).start() 
-    # print("thred start")
-    # client.start()
