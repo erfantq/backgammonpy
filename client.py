@@ -10,6 +10,9 @@ from router import Router
 from board import Board
 import random
 import sys
+from board import Board
+import random
+import sys
 
 
 class P2PClient:
@@ -39,7 +42,11 @@ class P2PClient:
                 break
             elif choice == "4":
                 break
+            
+            
             else:
+                print("Invalid option!")   
+                                                         
                 print("Invalid option!")   
                                                          
 
@@ -88,8 +95,18 @@ class P2PClient:
         client.send(f"CONNECTION_REQUEST{self.port}".encode())
         print(f"request for client {client_two_port}")
         response = client.recv(1024).decode()
+        # response = self.send_message(message)
+        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # client.bind((self.host, self.port))
+        client.connect((client_two_host, int(client_two_port)))
+        # client.send("Starting game.".encode())
+        client.send(f"CONNECTION_REQUEST{self.port}".encode())
+        print(f"request for client {client_two_port}")
+        response = client.recv(1024).decode()
         if response == "YES":
             print("Match accepted! Starting game.")        
+            self.start_game(client)
+            
             self.start_game(client)
             
         else:
