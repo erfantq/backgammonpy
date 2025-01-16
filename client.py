@@ -7,30 +7,41 @@ from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 import base64
 from router import Router
-import json
+from board import Board
+import random
+import sys
 
 
 class P2PClient:
+    
 
-    def __init__(self, host="127.0.0.1", port=6000, router_host="127.0.0.1", router_port=7001, keys=None):
+    def __init__(self, host="127.0.0.1", port=6000, router_host="127.0.0.1", router_port=7001, keys=None, thread_start=None, thread_receive=None):
         self.host = host
         self.port = port
         self.router_host = router_host
         self.router_port = router_port
         self.keys = keys
-       
+        self.thread_start = thread_start
+        self.thread_receive = thread_receive
+        # self.stop_first_thread = threading.Event()
+               
     def start(self):
         while True:
-            choice = input("1. See client list\n2. connect to someone\n3. Exit\nEnter choice: ")
+            choice = input("1. See client list\n2. connect to someone\n3. standby\n4. Exit\nEnter choice: ")
+            
             if choice == "1":
                 self.request_peers()
             elif choice == "2":
-                client_two_port = input("Enter port of client : ")
-                self.connect_to_client(client_two_port)
+                client_two_port = input("Enter port of client: ")
+                self.connect_to_client(self.host ,client_two_port)
             elif choice == "3":
+                self.receive_messages()
+                break
+            elif choice == "4":
                 break
             else:
-                print("Invalid option!")                                            
+                print("Invalid option!")   
+                                                         
 
     def encrypt_message(self, key, message):
         cipher = AES.new(key, AES.MODE_EAX)
@@ -67,67 +78,239 @@ class P2PClient:
         message = "REQUEST_PEERS"
         response = self.send_message(message)
     
-    def connect_to_client(self, client_two_port):
-        # message = f"CONNECT TO CLIENT{self.port}:{client_two_port}"
+    def connect_to_client(self,client_two_host, client_two_port):
+        message = f"CONNECT TO CLIENT{self.port}:{client_two_port}"
         # response = self.send_message(message)
-        # if response == "YES":
-        #     print("Match accepted! Starting game.")        
-        #     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        #     client.connect(client_two_host, client_two_port)
-        #     client.send("Starting game.".encode())
-        # else:
-        #     print("Match declined.")
-        message = f"CONNECT_TO_CLIENT:{client_two_port}"
-        self.send_message(message)
+        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # client.bind((self.host, self.port))
+        client.connect((client_two_host, int(client_two_port)))
+        # client.send("Starting game.".encode())
+        client.send(f"CONNECTION_REQUEST{self.port}".encode())
+        print(f"request for client {client_two_port}")
+        response = client.recv(1024).decode()
+        if response == "YES":
+            print("Match accepted! Starting game.")        
+            self.start_game(client)
+            
+        else:
+            print("Match declined.")
+
+    def receive_messages(self):
+        print("waiting for request...\n")
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.bind((self.host, int(self.port)))
+            sock.listen()
+            while True:
+                conn, addr = sock.accept()
+                try:
+                    message = conn.recv(1024).decode()
+                    # print(f"\n{message}")
+                    
+                    if message.startswith("CONNECTION_REQUEST"):
+                        port = message.replace("CONNECTION_REQUEST", "")
+                        while True:
+                            print(f"want to connect you, do you agree? ")
+                            response = input(f"{port} want to connect you, do you agree? (yes/no)")
+                            if(response == "yes"):
+                                
+                                conn.sendall("YES".encode())
+
+                                while True:
+                                    message = conn.recv(1024).decode()
+                                    print(message)
+                                    if "O, what do you want to do?" in message or "You didn't roll that!" in message or "That move is not allowed.  Please try again." in message or "the game is not over yet" in message or "Move made" in message:
+                                        
+                                        line = input()
+                                        conn.sendall(line.encode())
+                                        print("thanks")
+                                    
+                            elif(response == "no"):
+                                conn.sendall("NO".encode())
+                                break
+                            else:
+                                print("Wrong input")
+                except:
+                    print("Connection lost.")
+                    break
+        except Exception as e:
+            print(f"Error in receive_messages: {e}")
         
-    def receive_messages(sock):
-        while True:
-            try:
-                message = sock.recv(1024).decode()
-                # print(f"\n{message}")
-                
-                if message.startswith("CONNECTION_REQUEST"):
-                    port = message.replace("CONNECTION_REQUEST", "")
-                    while True:
-                        response = input(f"{port} want to connect you, do you agree?? (yes/no)")
-                        if(response == "yes"):
-                            client.sendall("YES".encode())
-                            break
-                        elif(response == "no"):
-                            client.sendall("NO".encode())
+       
+    exitTerms = ("quit", "exit", "bye","q")
+    def start_game(self, socket):
+        b = Board()
+        intro = open('readme.txt', 'r')
+        
+        # if(len(sys.argv[1]) > 1):
+        #     if(sys.argv[1].lower() == "x"):
+        #         SIDE = True
+        #     else:
+        #         SIDE = False			
+
+        SIDE = True
+        for line in intro:
+            socket.send(line.encode())
+            print(line)
+
+        
+        while (True):
+            bo = str(b)
+            socket.send(bo.encode())
+            print(bo)
+            
+            # roll1 = random.randint(1,6)
+            # roll2 = random.randint(1,6)
+            roll1, roll2 = self.send_message("ASK_DICE").split(":")
+    
+            turnComplete = False
+            roll1 = int(roll1)
+            roll2 = int(roll2)
+            total = roll1 + roll2
+            if (roll1 == roll2):
+                total *= 2
+    
+            if(SIDE):
+                print("You rolled a " + str(roll1) + " and a " + str(roll2) + " giving you a total of " + str(total) + " moves.")
+            else:
+                socket.send(("You rolled a " + str(roll1) + " and a " + str(roll2) + " giving you a total of " + str(total) + " moves.").encode())
+            if SIDE:
+                print("X, what do you want to do?")
+            else:
+                socket.send("O, what do you want to do?".encode())
+            line = ""
+            while (not turnComplete and line not in self.exitTerms and int(total) > 0):
+                if(SIDE):
+                    line = input()
+                else:
+                    line = socket.recv(1024).decode()
+                    
+                if(line in self.exitTerms):
+                    if SIDE:
+                        print("you left the game. you lost!!")
+                        socket.send("Your rival left the game, you win".encode())
+                        break
+                    else:
+                        print("Your rival left the game, you win")
+                        socket.send("you left the game. you lost!!".encode())
+                        break
+                elif line.capitalize() == "WON" :
+                    if SIDE :
+                        free = b.xFree
+                    else:
+                        free = b.oFree
+                    result = self.ckeck_win(free)
+                    
+                    if result:
+                        if SIDE:
+                            print("The game is over, you win")
+                            socket.send("The game is over, you lost".encode())
                             break
                         else:
-                            print("Wrong input")
-                            
-                else:
-                    print(message)
-                            
-            except:
-                print("Connection lost.")
-                break
-        
-        # client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # client.connect((self.router_host, self.router_port))
-        # while True:
-        #     try:
-        #         message = client.recv(1024).decode()
-        #         print(f"\n{message}")
-        #         if message.startswith("CONNECTION_REQUEST"):
-        #             port = message.replace("CONNECTION_REQUEST", "")
-        #             while True:
-        #                 response = input(f"{port} want to connect you, do you agree?? (yes/no)")
-        #                 if(response == "yes"):
-        #                     client.send("YES".encode())
-        #                     break
-        #                 elif(response == "no"):
-        #                     client.send("NO".encode())
-        #                     break
-        #                 else:
-        #                     print("Wrong input")
-        #     except:
-        #         print("Connection lost.")
-        #         break
+                            print("he game is over, you lost")
+                            socket.send("The game is over, you win".encode())
+                            break
+                        
+                    else:
+                        if SIDE:
+                            print("the game is not over yet")
+                        else:
+                            socket.send("the game is not over yet".encode())
+                        
+                     
+                    
+                space,steps = self.parseInput(line)
+                jailFreed = False
+                jailCase = False
+                if (SIDE and b.xJail > 0):
+                    jailCase = True
+                if (not SIDE and b.oJail > 0):
+                    jailCase = True
+                if (space == 100 and steps == 100):
+                    total = 0
+                    break
+                if (space == 101 and steps == 101):
+                    break
+                if (steps != roll1 and steps != roll2 and steps != (roll1 + roll2) and steps != 100 and not jailCase):
+                    if SIDE :
+                        print("You didn't roll that!")
+                    else: 
+                        socket.send("You didn't roll that!".encode())
+                    continue
+                    # Must jump to beginning of loop
+                space = space - 1
+                if (steps == 0 and SIDE and b.xJail > 0):
+                    tempSteps = space - 18
+                    if (tempSteps != roll1 and tempSteps != roll2):
+                        if SIDE :
+                            print("You didn't roll that!")
+                        else: 
+                            socket.send("You didn't roll that!".encode())
+                        continue
+                    else:
+                        jailFreed = True
+                elif (steps == 0 and not SIDE and b.oJail > 0):
+                    tempSteps = space + 1
+                    if (tempSteps != roll1 and tempSteps != roll2):
+                        if SIDE :
+                            print("You didn't roll that!")
+                        else: 
+                            socket.send("You didn't roll that!".encode())
+                        continue
+                    else:
+                        jailFreed = True
+                if (space < 0 or space > 23 or steps < 0):
+                    if SIDE :
+                        print("That move is not allowed.  Please try again.")
+                    else: 
+                        socket.send("That move is not allowed.  Please try again.".encode())
+                    continue
+                    #Same deal here.
+                move, response = b.makeMove(space, SIDE, steps)
+                if SIDE :
+                    print(response)
+                else: 
+                    socket.send(response.encode())
+                if (move and jailFreed):
+                    steps = tempSteps
+                if move:
+                    total = total - steps
+                    if SIDE :
+                        print(b)
+                    else:
+                        b_str = str(b)
+                        socket.send(b_str.encode())
+                    if SIDE:
+                        print("You have " + str(total) + " steps left.")
+                    else:
+                        socket.send(("You have " + str(total) + " steps left.").encode())
+            SIDE = not SIDE
 
+    #TODO: Include error management
+    def parseInput(self, response):
+        if response == "d" or response == "f" or response == "done" or response == "finish":
+            return(100,100)
+        if response in self.exitTerms:
+            return (101, 101)
+        # if type(response) == type("Sample string"):
+        # 	return(101,101)
+        loc = self.findSeparation(response)
+        return(int(response[:loc]), int(response[loc+1:])) 
+
+    def findSeparation(self, value):
+        for i in range(len(value)):
+            if (value[i] == ' ' or value[i] == ','):
+                return i
+        return 0   
+    
+    def ckeck_win(self, free):
+        message = f"CHECK_WIN{free}"
+        response = self.send_message(message)
+        if response.startswith("YOU WIN"):
+            return True
+        else:
+            return False
+        
 
 def handle_sigint(signal_number, frame):
     os.remove("first_run.lock")
@@ -157,5 +340,15 @@ if __name__ == "__main__":
     
     client.send_message(f"REGISTER_CLIENT {client.port}")
     client.start()
-    threading.Thread(target=client.receive_messages, args=(client,)).start() 
+    # thread_start = threading.Thread(target=client.start, args=())
+    # thread_start.start()
+    # thread_start.join()
+    # client.thread_start = thread_start
+    # thread_receive = threading.Thread(target=client.receive_messages, args=())
+    # thread_receive.start() 
+    # client.thread_receive = thread_receive
+    # thread_start.join()
+    # thread_receive.join()
 
+    
+    
