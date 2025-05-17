@@ -4,7 +4,7 @@
 
 **********************************
 
-	by Jordan Balk Schaer
+	
 
 BASHGAMMON is a Python/text version of the classic game Backgammon.  It is played with the rules that I know.  
 There are two teams, represented as X and O.  O starts in the upper right side and X starts in the lower right.  X wants to move to its home board in the upper right and O wants to move to its home board in the lower right.  
